@@ -1,8 +1,13 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <raylib.h>
 #include <vector>
 #include <String>
 #include "raymath.h"
+
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 
 using namespace std;
 
@@ -127,7 +132,6 @@ int main() {
     button.color = RED;
 
     // Botao da loja
-    Rectangle loja = { screenWidth - 75, screenHeight - 75, 50.f, 50.f };
     Rectangle back = { 10, 10, 50, 50 };
 
     // Timers
@@ -177,19 +181,6 @@ int main() {
 
         // TROCA DAS TELAS
         switch (currentScreen) {
-            case LOGO:
-            {
-                frameCounter++;
-                if (frameCounter > 120) {
-                    currentScreen = MENU;
-                }
-            } break;
-            case MENU:
-            {
-                if (IsKeyPressed(KEY_ENTER)) {
-                    currentScreen = GAMEPLAY;
-                }
-            } break;
             case GAMEPLAY:
             {
                 if (CheckCollisionPointCircle(MousePos, button.position, button.radius)) {
@@ -198,13 +189,6 @@ int main() {
                         caios += 1;
                     }
                 }
-                if (CheckCollisionPointRec(MousePos, loja)) {
-                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                        // Ir para a cena da loja
-                        currentScreen = SHOP;
-                    }
-                }
-
 
                 if (button.radius > 50) {
                     button.radius--;
@@ -217,32 +201,55 @@ int main() {
 
         // Render
         BeginDrawing();
+            GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+            GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_MIDDLE);
+            GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
             switch (currentScreen) {
             case LOGO:
             {
-                ClearBackground(RAYWHITE); 
-                Rectangle screenRect = { 0, 0, (float)screenWidth, (float)screenHeight };
-                DrawTextInRect(font, "GAME BY SAMTLOKOMEMO", screenRect, 32, fontSpacing, BLACK, ALIGN_CENTER, ALIGN_MIDDLE);
+                frameCounter++;
+                if (frameCounter > 120) {
+                    currentScreen = MENU;
+                }
+                ClearBackground(BLACK);
+
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                GuiLabel({ 0,0,screenWidth, screenHeight }, "GAME BY SAMTLOKOMEMO");
+                
             } break;
             case MENU:
             {
                 ClearBackground(DARKGREEN);
-                // Container para o título: começa em y=50, tem 40px de altura
-                Rectangle titleBox = { 0, 50, (float)screenWidth, 40 };
-                DrawTextInRect(font, "CAIO CLICKER", titleBox, 40, fontSpacing, WHITE, ALIGN_CENTER, ALIGN_TOP);
 
-                // Container para o subtítulo: começa em y=300, tem 24px de altura
-                Rectangle subtitleBox = { 0, 300, (float)screenWidth, 24 };
-                DrawTextInRect(font, "aperte ENTER para jogar", subtitleBox, 24, fontSpacing, WHITE, ALIGN_CENTER, ALIGN_TOP);
+                // Título
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
+                GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
+
+                // Botão jogar
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 24);
+                GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(RED));
+                float tamanhoDoTexto = MeasureText("JOGAR", 24);
+                if (GuiButton({ screenWidth / 2 - 60, screenHeight / 4, tamanhoDoTexto + 30, 36}, "JOGAR")) currentScreen = GAMEPLAY;
             } break;
             case GAMEPLAY:
             {
                 ClearBackground(darkPurple);
+
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
+                GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
+
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(LIME));
+                GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(GREEN));
+                GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
+                if(GuiButton({ screenWidth - 75, screenHeight - 75, 50.f, 50.f }, "$")) currentScreen = SHOP;
+
+
                 DrawCircle(button.position.x, button.position.y, button.radius, button.color);
-                DrawRectangleRec(loja, DARKGREEN);
-                DrawTextEx(font, "CAIO CLICKER", { screenWidth / 2 - 170 }, 50, fontSpacing, WHITE);
-                DrawTextEx(font, TextFormat("VOCE TEM %.0f caios", caios), { screenWidth / 2 - 100, screenHeight - 100 }, 20, fontSpacing, WHITE);
-                DrawTextEx(font, TextFormat("VOCE ganha %.1f  caios por segundo", totalCPS), { screenWidth / 2 - 100, screenHeight - 60 }, 20, fontSpacing, WHITE);
+                
+                GuiSetStyle(DEFAULT, TEXT_SIZE, 18);
+                GuiLabel({ 0, screenHeight - 100, (float)screenWidth, 20 }, TextFormat("VOCE TEM %.0f caios", caios));
+                GuiLabel({ 0, screenHeight - 100, (float)screenWidth, 45 }, TextFormat("VOCE ganha %.1f  caios por segundo", totalCPS));
             } break;
             case SHOP:
             {
@@ -281,6 +288,10 @@ int main() {
                     // Container para o custo (metade de baixo do botão, com 10px de padding)
                     Rectangle costBox = { buttonRect.x + 10, buttonRect.y + (buttonRect.height / 2), buttonRect.width - 20, buttonRect.height / 2 };
                     DrawTextInRect(font, TextFormat("Custo: %.0f", item.currentCost), costBox, 15, fontSpacing, DARKGRAY, ALIGN_RIGHT, ALIGN_MIDDLE);
+
+                    GuiSetStyle(DEFAULT, TEXT_SIZE, 18);
+                    GuiLabel({ 0, screenHeight - 100, (float)screenWidth, 20 }, TextFormat("VOCE TEM %.0f caios", caios));
+                    GuiLabel({ 0, screenHeight - 100, (float)screenWidth, 45 }, TextFormat("VOCE ganha %.1f  caios por segundo", totalCPS));
                 }
             } break;
             }
@@ -290,3 +301,5 @@ int main() {
     CloseWindow();
     return 0;
 }
+
+
