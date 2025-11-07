@@ -50,6 +50,7 @@ struct Item {
     double baseCost = 10.0;
     double currentCost = 10.0;
     double costMultiplier = 1.15;
+    float currentMultiplier = 1.0f;
 
     Item(string n, double cps, double cost) {
         name = n;
@@ -59,7 +60,7 @@ struct Item {
     }
 
     double GetContribuition() {
-        return (double)count * cpsPerItem;
+        return (double)count * cpsPerItem * currentMultiplier;
     }
 
     void Buy(double& playerCur) {
@@ -72,6 +73,24 @@ struct Item {
     }
 };
 
+enum upgradeType {
+    ClickUpgrade,
+    ItemUpgrade
+};
+
+struct Upgrade {
+    string name;
+    double cost;
+    bool isPurchased = false;
+
+    upgradeType type;
+    float multiplier;
+    int targetItemIndex = -1;
+
+    Upgrade(string n, double c, upgradeType t, float m, int target = -1)
+        : name(n), cost(c), type(t), multiplier(m), targetItemIndex(target) {};
+};
+
 typedef enum TextAlignment {
     ALIGN_LEFT      = 0,
     ALIGN_TOP       = 0,
@@ -80,23 +99,6 @@ typedef enum TextAlignment {
     ALIGN_RIGHT     = 2,
     ALIGN_BOTTOM    = 2
 } TextAlignment;
-
-void DrawTextInRect(Font font, const char* text, Rectangle container, int fontSize, int fontSpacing, Color color, TextAlignment hAlign, TextAlignment vAlign)
-{
-    // 1. Medir o tamanho do texto
-    Vector2 textSize = MeasureTextEx(font, text, (float)fontSize, (float)fontSpacing);
-
-    // 2. Calcular a Posição X (Horizontal)
-    // A lógica 'Lerp' do exemplo é a mais elegante para isso.
-    // (hAlign * 0.5f) converte 0, 1, 2 para 0.0, 0.5, 1.0
-    float posX = container.x + Lerp(0.0f, container.width - textSize.x, (float)hAlign * 0.5f);
-
-    // 3. Calcular a Posição Y (Vertical)
-    float posY = container.y + Lerp(0.0f, container.height - textSize.y, (float)vAlign * 0.5f);
-
-    // 4. Desenhar o texto na posição calculada
-    DrawTextEx(font, text, { posX, posY }, (float)fontSize, (float)fontSpacing, color);
-}
 
 typedef enum GameScreen { LOGO = 0, MENU, GAMEPLAY, SHOP } GameScreen;
 
@@ -115,8 +117,15 @@ int main() {
     GameScreen currentScreen = GAMEPLAY;
 
     // Moeda
-    double caios = 0;
+    double caios = 99;
     double totalCPS = 0.0;
+    double clickPower = 1.0;
+
+    // Upgrades
+    vector<Upgrade> upgrades;
+    upgrades.push_back(Upgrade("Trufa do sebastião", 100, ClickUpgrade, 2.0f));
+    upgrades.push_back(Upgrade("Brownie do Kleber", 500, ClickUpgrade, 5.0f));
+    upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
 
     // Itens
     vector<Item> itens;
@@ -172,33 +181,33 @@ int main() {
     // GameLoop
     while (WindowShouldClose() == false) {
         MousePos = GetMousePosition();
-        
+
         // Cálculo dos caios
         totalCPS = 0;
         for (int i = 0; i < itens.size(); i++)
-        {   
+        {
             totalCPS += itens[i].GetContribuition();
         }
         caios += totalCPS * GetFrameTime();
 
         // TROCA DAS TELAS
         switch (currentScreen) {
-            case GAMEPLAY:
-            {
-                if (CheckCollisionPointCircle(MousePos, button.position, button.radius)) {
-                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                        button.radius += 10;
-                        caios += 1;
-                    }
+        case GAMEPLAY:
+        {
+            if (CheckCollisionPointCircle(MousePos, button.position, button.radius)) {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    button.radius += 10;
+                    caios += clickPower;
                 }
+            }
 
-                if (button.radius > 50) {
-                    button.radius--;
-                }
-                if (button.radius > button.maxRadius) {
-                    button.radius = button.maxRadius;
-                }
-            } break;
+            if (button.radius > 50) {
+                button.radius--;
+            }
+            if (button.radius > button.maxRadius) {
+                button.radius = button.maxRadius;
+            }
+        } break;
         }
 
         // Render
@@ -211,120 +220,191 @@ int main() {
             GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, ColorToInt(DARKGRAY));
 
             switch (currentScreen) {
-            case LOGO:
-            {
-                frameCounter++;
-                if (frameCounter > 120) {
-                    currentScreen = MENU;
-                }
-                ClearBackground(BLACK);
-                // SplashScreen
+                case LOGO:
                 {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
-                    GuiLabel({ 0,0,screenWidth, screenHeight }, "GAME BY SAMTLOKOMEMO");
-                }
-                
-            } break;
-            case MENU:
-            {
-                ClearBackground(DARKGREEN);
-
-                // Título
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
-                    GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
-                }
-
-                // Botão jogar
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 24);
-                    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(RED));
-                    float tamanhoDoTexto = MeasureText("JOGAR", 24);
-                    if (GuiButton({ screenWidth / 2 - 60, screenHeight / 4, tamanhoDoTexto + 30, 36}, "JOGAR")) currentScreen = GAMEPLAY;
-                }
-            } break;
-            case GAMEPLAY:
-            {
-                ClearBackground(darkPurple);
-
-                // Título 
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
-                    GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
-                }
-                // Botão da loja
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
-                    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(LIME));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(GREEN));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
-                    if(GuiButton({ screenWidth - 75, screenHeight - 75, 50.f, 50.f }, "$")) currentScreen = SHOP;
-                }
-                   
-                // Botão do caio
-                DrawCircle(button.position.x, button.position.y, button.radius, button.color);
-            } break;
-            case SHOP:
-            {
-                ClearBackground(darkPurple);
-
-                // Botão de voltar
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
-                    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(DARKGRAY));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKPURPLE));
-                    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(LIGHTGRAY));
-                    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(GRAY));
-                    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt(DARKGRAY));
-                    if(GuiButton({ 10, 10, 30, 30 }, "<")) currentScreen = GAMEPLAY;
-                }
-                
-                // Título da loja
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
-                    GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
-                    GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_TOP);
-                    GuiLabel({ 100, 20, (float)screenWidth, (float)screenHeight }, "LOJA\n\n\n DO\n\n\nCAIO");
-                }
-                
-                // Botões dos itens
-                {
-                    GuiSetStyle(DEFAULT, TEXT_SIZE, 12);
-                    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(LIME));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(GREEN));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
-                    GuiSetStyle(BUTTON, TEXT_COLOR_DISABLED, ColorToInt(RED));
-                    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(GREEN));
-                    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(DARKGREEN));
-                    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt({0 , 120, 100, 255}));
-                    GuiSetStyle(BUTTON, BASE_COLOR_DISABLED, ColorToInt({ 114, 47, 55, 255 }));
-
-                    for (int i = 0; i < itens.size(); i++)
-                    {
-                        Item& item = itens[i];
-                        // Criando o botão dinamicamente de acordo com o número de itens
-                        float buttonY = uiY + (i * (buttonHeight * buttonSpacing));
-                        Rectangle buttonRect = { uiX, buttonY, buttonWidth, buttonHeight };
-
-                        if (caios < item.currentCost)
-                        {
-                            GuiDisable();
-                        }
-
-                        const char* buttonText = TextFormat("%s (%d) | Custo: %.0f",
-                            item.name.c_str(),
-                            item.count,
-                            item.currentCost);
-
-                        // Comprando o item
-                        if (GuiButton(buttonRect, buttonText)) item.Buy(caios);
-                        GuiEnable();
+                    frameCounter++;
+                    if (frameCounter > 120) {
+                        currentScreen = MENU;
                     }
-                }
-            } break;
-            }
+                    ClearBackground(BLACK);
+                    // SplashScreen
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                        GuiLabel({ 0,0,screenWidth, screenHeight }, "GAME BY SAMTLOKOMEMO");
+                    }
 
+                } break;
+                case MENU:
+                {
+                    ClearBackground(DARKGREEN);
+
+                    // Título
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
+                        GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
+                    }
+
+                    // Botão jogar
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 24);
+                        GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(RED));
+                        float tamanhoDoTexto = MeasureText("JOGAR", 24);
+                        if (GuiButton({ screenWidth / 2 - 60, screenHeight / 4, tamanhoDoTexto + 30, 36 }, "JOGAR")) currentScreen = GAMEPLAY;
+                    }
+                } break;
+                case GAMEPLAY:
+                {
+                    ClearBackground(darkPurple);
+
+                    // Título 
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
+                        GuiLabel({ 0, 0, (float)screenWidth, 100 }, "CAIO CLICKER");
+                    }
+                    // Botão da loja
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                        GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(LIME));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(GREEN));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
+                        if (GuiButton({ screenWidth - 75, screenHeight - 75, 50.f, 50.f }, "$")) currentScreen = SHOP;
+                    }
+
+                    // Botão do caio
+                    DrawCircle(button.position.x, button.position.y, button.radius, button.color);
+                } break;
+                case SHOP:
+                {
+                    ClearBackground(darkPurple);
+
+                    // --- 1. BOTÃO DE VOLTAR E TÍTULO (Seu código está ótimo) ---
+                    {
+                        // Botão de voltar
+                        {
+                            GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                            GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
+                            GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(DARKGRAY));
+                            GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKPURPLE));
+                            GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(LIGHTGRAY));
+                            GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(GRAY));
+                            GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt(DARKGRAY));
+                            if (GuiButton({ 10, 10, 30, 30 }, "<")) currentScreen = GAMEPLAY;
+                        }
+                        // Título da loja
+                        {
+                            GuiSetStyle(DEFAULT, TEXT_SIZE, 48);
+                            GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+                            GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_TOP);
+                            GuiLabel({ 100, 20, (float)screenWidth, (float)screenHeight }, "LOJA\n\n\n DO\n\n\nCAIO");
+                        }
+                    }
+
+
+                    // --- 2. ÁREA DOS UPGRADES (OS QUADRADOS) ---
+                    // Vamos desenhar os upgrades PRIMEIRO, no topo da coluna da loja.
+                    {
+                        // Define o estilo dos botões de upgrade
+                        GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(SKYBLUE));
+                        GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(BLUE));
+                        GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt(DARKBLUE));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
+                        GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+                        GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_MIDDLE);
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 20); // Tamanho do texto para os ícones
+
+                        // Define o tamanho dos botões quadrados
+                        float upgradeSize = 48.0f;
+                        float upgradeSpacing = 4.0f;
+
+                        for (int i = 0; i < upgrades.size(); i++)
+                        {
+                            Upgrade& upg = upgrades[i];
+
+                            // SÓ MOSTRE O UPGRADE SE ELE NÃO FOI COMPRADO
+                            if (!upg.isPurchased)
+                            {
+                                // Calcula a posição X (horizontal)
+                                float buttonX = uiX + (i * (upgradeSize + upgradeSpacing));
+                                // A posição Y é fixa (no topo da coluna)
+                                float buttonY = uiY;
+
+                                Rectangle buttonRect = { buttonX, buttonY, upgradeSize, upgradeSize };
+
+                                if (caios < upg.cost) GuiDisable();
+
+                                // --- Problema de Texto vs. Ícone ---
+                                // Texto (nome/custo) não cabe em um quadrado de 48x48.
+                                // O Cookie Clicker usa ÍCONES.
+                                // Solução: Usamos a primeira letra e mostramos o resto com um "Tooltip".
+                                const char* iconText = TextFormat("%c", upg.name[0]);
+                                const char* toolTipText = TextFormat("%s | Custo: %.0f", upg.name.c_str(), upg.cost);
+
+                                // Mostra o "tooltip" se o mouse estiver em cima
+                                if (CheckCollisionPointRec(GetMousePosition(), buttonRect))
+                                {
+                                    GuiTooltip(buttonRect);
+                                }
+
+                                // Desenha o botão e checa o clique
+                                if (GuiButton(buttonRect, iconText))
+                                {
+                                    caios -= upg.cost;
+                                    upg.isPurchased = true;
+                                    if (upg.type == ClickUpgrade)
+                                    {
+                                        clickPower *= upg.multiplier;
+                                    }
+                                    else if (upg.type == ItemUpgrade)
+                                    {
+                                        int targetIndex = upg.targetItemIndex;
+                                        // Checa se o índice é válido
+                                        if (targetIndex >= 0 && targetIndex < itens.size())
+                                        {
+                                            itens[targetIndex].currentMultiplier *= upg.multiplier;
+                                        }
+                                    }
+                                }
+                                GuiEnable();
+                            }
+                        }
+                    }
+
+
+                    // --- 3. ÁREA DOS ITENS (OS RETÂNGULOS) ---
+                    // Agora, desenhamos a lista de itens ABAIXO da barra de upgrades.
+                    {
+                        // Define a posição Y inicial para os itens
+                        // (Abaixo dos upgrades + 10 pixels de espaço)
+                        float itemUiY = uiY + 48.0f + 10.0f;
+
+                        // Define o estilo dos botões de item
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 12);
+                        GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(GREEN));
+                        // (Seu outro código GuiSetStyle para os botões de item...)
+                        GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(BLACK)); // Mudei para preto para ler melhor
+
+                        for (int i = 0; i < itens.size(); i++)
+                        {
+                            Item& item = itens[i];
+                            // --- CORREÇÃO DE BUG ---
+                            // Seu cálculo `(buttonHeight * buttonSpacing)` estava errado.
+                            // O correto é `i * (altura + espaço)`.
+                            float buttonY = itemUiY + (i * (buttonHeight + buttonSpacing));
+                            Rectangle buttonRect = { uiX, buttonY, buttonWidth, buttonHeight };
+                            if (caios < item.currentCost) GuiDisable();
+                            const char* buttonText = TextFormat("%s (%d) | Custo: %.0f",
+                                item.name.c_str(),
+                                item.count,
+                                item.currentCost);
+                            if (GuiButton(buttonRect, buttonText)) item.Buy(caios);
+                            GuiEnable(); // Mova o GuiEnable para dentro do loop
+                        }
+                    }
+                    // Reseta o estilo padrão no final para não afetar outras telas
+                    GuiSetStyle(DEFAULT, TEXT_SIZE, 10); // 10 é o padrão do raygui
+
+                } break;
+            }
             // Textos dos valores
             {
                 GuiSetStyle(DEFAULT, TEXT_SIZE, 18);
@@ -334,10 +414,11 @@ int main() {
                 GuiLabel({ 0, screenHeight - 100, (float)screenWidth, 45 }, TextFormat("você ganha %.1f  caios por segundo", totalCPS));
             }
         EndDrawing();
-    }
+        }
     UnloadFont(font);
     CloseWindow();
     return 0;
 }
+
 
 
