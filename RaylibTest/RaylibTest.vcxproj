@@ -123,11 +123,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ClickerButton.cpp" />
+    <ClCompile Include="FloatingText.cpp" />
+    <ClCompile Include="Item.cpp" />
     <ClCompile Include="RaylibTest.cpp" />
+    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Upgrade.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="m5x7.ttf" />
     <Font Include="Roboto.ttf" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ClickerButton.h" />
+    <ClInclude Include="FloatingText.h" />
+    <ClInclude Include="Item.h" />
+    <ClInclude Include="Timer.h" />
+    <ClInclude Include="Upgrade.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

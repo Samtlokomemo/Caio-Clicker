@@ -1,6 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <iostream>
+#include <cstdio>
+
 #include <raylib.h>
 #include <vector>
 #include <deque>
@@ -8,99 +10,17 @@
 #include <String>
 #include "raymath.h"
 
-
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+// Minhas classes
+#include "Item.h"
+#include "Upgrade.h"
+#include "FloatingText.h"
+#include "Timer.h"
+#include "ClickerButton.h"
+
 using namespace std;
-
-struct CircleButton {
-    Vector2 position;
-    float radius, maxRadius;
-    Color color;
-};
-
-struct Timer {
-    float currentTime = 0.0f, interval;
-    
-    Timer(float targetInterval) {
-        interval = targetInterval;
-    }
-
-    bool Tick() {
-        currentTime += GetFrameTime();
-        if (currentTime >= interval) {
-            currentTime -= interval;
-            return true;
-        }
-        return false;
-    }
-
-    void Reset() {
-        currentTime = 0.0f;
-    }
-};
-
-struct SquareButton {
-    Vector2 position, size;
-    Color color;
-};
-
-struct Item {
-    string name;
-    int count = 0;
-    double cpsPerItem = 0.1;
-    double baseCost = 10.0;
-    double currentCost = 10.0;
-    double costMultiplier = 1.15;
-    float currentMultiplier = 1.0f;
-
-    Item(string n, double cps, double cost) {
-        name = n;
-        cpsPerItem = cps;
-        baseCost = cost;
-        currentCost = cost;
-    }
-
-    double GetContribuition() {
-        return (double)count * cpsPerItem * currentMultiplier;
-    }
-
-    void Buy(double& playerCur) {
-        if (playerCur >= currentCost) {
-            playerCur -= currentCost;
-            count++;
-            currentCost *= costMultiplier;
-
-        }
-    }
-};
-
-enum upgradeType {
-    ClickUpgrade,
-    ItemUpgrade
-};
-
-struct Upgrade {
-    string name;
-    double cost;
-
-    upgradeType type;
-    float multiplier;
-    int targetItemIndex = -1;
-
-    Upgrade(string n, double c, upgradeType t, float m, int target = -1)
-        : name(n), cost(c), type(t), multiplier(m), targetItemIndex(target) {};
-};
-
-struct FloatingText {
-    Vector2 position;
-    float lifetime;
-    string text;
-
-    FloatingText(Vector2 pos, float life, string txt)
-        : position(pos), lifetime(life), text(txt) {}
-};
 
 typedef enum TextAlignment {
     ALIGN_LEFT      = 0,
@@ -111,9 +31,51 @@ typedef enum TextAlignment {
     ALIGN_BOTTOM    = 2
 } TextAlignment;
 
-typedef enum GameScreen { LOGO = 0, MENU, GAMEPLAY, SHOP } GameScreen;
+typedef enum GameScreen { LOGO = 0, MENU, GAMEPLAY, SHOP, ACHIEVEMENTS } GameScreen;
 
 Color darkPurple = Color{ 34, 24, 40, 16 };
+
+vector<Upgrade> upgrades;
+vector<Item> itens;
+
+// Moeda
+double caios = 0;
+double totalCPS = 0.0;
+double clickPower = 1.0;
+
+// Save/Load
+
+void saveGame() {
+    FILE* saveFile = fopen("save.dat", "wb");
+
+    if (saveFile == NULL) return;
+
+    fwrite(&caios, sizeof(caios), 1, saveFile);
+    fwrite(&clickPower, sizeof(clickPower), 1, saveFile);
+
+    for (int i = 0; i < itens.size(); i++) {
+        fwrite(&itens[i].count, sizeof(itens[i].count), 1, saveFile);
+        fwrite(&itens[i].currentCost, sizeof(itens[i].currentCost), 1, saveFile);
+        fwrite(&itens[i].currentMultiplier, sizeof(itens[i].currentMultiplier), 1, saveFile);
+    }
+    fclose(saveFile);
+}
+
+void loadGame() {
+    FILE* saveFile = fopen("save.dat", "rb");
+
+    if (saveFile == NULL) return;
+
+    fread(&caios, sizeof(caios), 1, saveFile);
+    fread(&clickPower, sizeof(clickPower), 1, saveFile);
+
+    for (int i = 0; i < itens.size(); i++) {
+        fread(&itens[i].count, sizeof(itens[i].count), 1, saveFile);
+        fread(&itens[i].currentCost, sizeof(itens[i].currentCost), 1, saveFile);
+        fread(&itens[i].currentMultiplier, sizeof(itens[i].currentMultiplier), 1, saveFile);
+    }
+    fclose(saveFile);
+}
 
 int main() {
     const int screenWidth = 800;
@@ -127,21 +89,20 @@ int main() {
     // GameScreen currentScreen = LOGO; << Pular a splash screen por enquanto
     GameScreen currentScreen = GAMEPLAY;
 
-    // Moeda
-    double caios = 99999999999;
-    double totalCPS = 0.0;
-    double clickPower = 1.0;
-
     // Texto do clique
     vector<FloatingText> floatingTexts;
     const float ftextLifetime = 0.5f;
 
+    // Conquistas
+    int clicks = 0;
+    int clickAchieve = 0;
+
     // Upgrades
-    vector<Upgrade> upgrades;
+    
     upgrades.push_back(Upgrade("Trufa do sebastião", 100, ClickUpgrade, 2.0f));
     upgrades.push_back(Upgrade("Brownie do Kleber", 500, ClickUpgrade, 2.5f));
     upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
-    upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
+    upgrades.push_back(Upgrade("Sonho com os crias", 3000, ItemUpgrade, 3.0f, 2));
     upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
     upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
     upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
@@ -155,18 +116,14 @@ int main() {
     upgrades.push_back(Upgrade("Almoço do CDR", 1000, ClickUpgrade, 10.0f));
 
     // Itens
-    vector<Item> itens;
+    
     itens.push_back(Item("Professora de Química", 0.1, 10));
     itens.push_back(Item("Beijo do bubulane", 0.3, 30));
     itens.push_back(Item("Cama de casal", 0.5, 50));
     itens.push_back(Item("Pão", 1, 100));
 
     // Botao do caio
-    CircleButton button;
-    button.position = { screenWidth / 2 , screenHeight / 2 };
-    button.maxRadius = 60.f;
-    button.radius = 50.f;
-    button.color = RED;
+    ClickerButton botaoDoCaio({ screenWidth / 2 , screenHeight / 2 }, 50, 60, RED);
 
     // Botao da loja
     Rectangle back = { 10, 10, 50, 50 };
@@ -205,6 +162,9 @@ int main() {
     Vector2 MousePos = { 0 };
     int frameCounter = 0;
     
+    // Carrega o save
+    loadGame();
+
     // GameLoop
     while (WindowShouldClose() == false) {
 
@@ -222,14 +182,11 @@ int main() {
         switch (currentScreen) {
         case GAMEPLAY:
         {
-            if (CheckCollisionPointCircle(MousePos, button.position, button.radius)) {
-                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                    button.radius += 10;
-                    caios += clickPower;
+            if (botaoDoCaio.Update(MousePos)) {
+                caios += clickPower;
 
-                    string textToShow = TextFormat("+%.0f", clickPower);
-                    floatingTexts.push_back(FloatingText(MousePos, ftextLifetime, textToShow));
-                }
+                string textToShow = TextFormat("+%.0f", clickPower);
+                floatingTexts.push_back(FloatingText(MousePos, ftextLifetime, textToShow));
             }
 
             for (int i = 0; i < floatingTexts.size(); i++)
@@ -246,13 +203,6 @@ int main() {
                 {
                     floatingTexts.erase(floatingTexts.begin() + i);
                 }
-            }
-
-            if (button.radius > 50) {
-                button.radius--;
-            }
-            if (button.radius > button.maxRadius) {
-                button.radius = button.maxRadius;
             }
         } break;
         }
@@ -301,6 +251,10 @@ int main() {
                 } break;
                 case GAMEPLAY:
                 {
+                    if (clicks % 10 == 0) {
+                        // Nível da conquista += 1
+                        clickAchieve += 1;
+                    }
                     ClearBackground(darkPurple);
 
                     // Título 
@@ -316,9 +270,17 @@ int main() {
                         GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
                         if (GuiButton({ screenWidth - 75, screenHeight - 75, 50.f, 50.f }, "$")) currentScreen = SHOP;
                     }
+                    // Botão das conquistas
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                        GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(YELLOW));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(ORANGE));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(RED));
+                        if (GuiButton({ 25, screenHeight - 75, 50.f, 50.f }, "#157#")) currentScreen = ACHIEVEMENTS;
+                    }
 
                     // Botão do caio
-                    DrawCircle(button.position.x, button.position.y, button.radius, button.color);
+                    botaoDoCaio.Draw();
 
                     // Texto do clique
                     for (const auto& txt : floatingTexts) // 'const auto&' é um jeito rápido e eficiente
@@ -409,7 +371,7 @@ int main() {
                                 caios -= upg.cost;
                                 if (upg.type == ClickUpgrade)
                                 {
-                                    clickPower *= upg.multiplier;
+                                    clickPower += upg.multiplier;
                                 }
                                 else if (upg.type == ItemUpgrade)
                                 {
@@ -458,6 +420,57 @@ int main() {
                     GuiSetStyle(DEFAULT, TEXT_SIZE, 10); // 10 é o padrão do raygui
 
                 } break;
+                case ACHIEVEMENTS:{
+                    ClearBackground(darkPurple);
+                    // Botão de voltar
+                    {
+                        GuiSetStyle(DEFAULT, TEXT_SIZE, 36);
+                        GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(DARKGRAY));
+                        GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(DARKPURPLE));
+                        GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(LIGHTGRAY));
+                        GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(GRAY));
+                        GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt(DARKGRAY));
+                        if (GuiButton({ 10, 10, 30, 30 }, "<")) currentScreen = GAMEPLAY;
+                    }
+
+                    // 1. Defina o layout
+                    int colunas = 6;
+                    // int linhas = 5; // (O loop 'for' cuidará disso)
+                    float achievementSize = 50.0f; // CONTROLE TOTAL DO TAMANHO!
+                    float achievementSpacing = 30.0f;
+                    float startX = 175.0f; // Onde a grade começa
+                    float startY = 100.0f;
+
+                    // (Você precisaria de um 'vector<Achievement> achievements')
+                    // Vamos fingir que você tem 30 conquistas (6 colunas * 5 linhas)
+                    for (int i = 0; i < 30; i++)
+                    {
+                        // Calcula a posição (x, y) desta conquista
+                        int linha = i / colunas; // (0, 0, 0, 0, 0, 0, 1, 1, 1...)
+                        int col = i % colunas; // (0, 1, 2, 3, 4, 5, 0, 1, 2...)
+
+                        float buttonX = startX + (col * (achievementSize + achievementSpacing));
+                        float buttonY = startY + (linha * (achievementSize + achievementSpacing));
+
+                        Rectangle achRect = { buttonX, buttonY, achievementSize, achievementSize };
+
+                        // (Lógica da sua conquista, ex: 'Achievement& ach = achievements[i]')
+                        // (Você pode checar se 'ach.isUnlocked' para mudar a cor)
+
+                        // Desenha o botão/ícone
+                        if (GuiButton(achRect, TextFormat("%d", i)))
+                        {
+                            // (Não faz nada, é só para mostrar)
+                        }
+
+                        // (Mostra o tooltip)
+                        if (CheckCollisionPointRec(GetMousePosition(), achRect))
+                        {
+                            (achRect, "Nome da Conquista Aqui");
+                        }
+                    }
+                } break;
             }
             // Textos dos valores
             {
@@ -470,6 +483,7 @@ int main() {
         EndDrawing();
         }
     UnloadFont(font);
+    saveGame();
     CloseWindow();
     return 0;
 }
