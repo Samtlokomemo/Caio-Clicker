@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include "raylib.h"
-#include "raygui.h" // Se precisar de raygui aqui, mas geralmente é no cpp
+#include "raygui.h" // Se precisar de raygui aqui, mas geralmente ï¿½ no cpp
 #include "Item.h"
 #include "Upgrade.h"
 #include "FloatingText.h"
@@ -23,7 +23,7 @@ typedef enum GameScreen { LOGO = 0, MENU, GAMEPLAY, SHOP, ACHIEVEMENTS } GameScr
 
 class Game {
 public:
-    // --- Variáveis de Estado do Jogo ---
+    // --- Variï¿½veis de Estado do Jogo ---
     double caios;
     double totalCPS;
     double clickPower;
@@ -32,26 +32,26 @@ public:
     int clicks;
     int clickAchieve;
 
-    // --- Conteúdo ---
+    // --- Conteï¿½do ---
     std::vector<Upgrade> upgrades;
     std::vector<Item> itens;
     std::vector<FloatingText> floatingTexts;
 
     // --- Recursos e UI ---
-    Font font;
+    Font font{};
     ClickerButton* botaoDoCaio; // Ponteiro para inicializar depois
 
-    // Variáveis de UI
+    // Variï¿½veis de UI
     float uiX, uiY, buttonWidth, buttonHeight, buttonSpacing;
-    Rectangle backButtonRect;
+    Rectangle backButtonRect{};
 
-    // Configurações de Texto Flutuante
+    // Configuraï¿½ï¿½es de Texto Flutuante
     const float ftextLifetime = 0.5f;
 
-    // Variável para controle de frames (usada na tela de LOGO)
+    // Variï¿½vel para controle de frames (usada na tela de LOGO)
     int frameCounter;
 
-    // --- Métodos ---
+    // --- Mï¿½todos ---
     Game();  // Construtor
     ~Game(); // Destrutor
 
@@ -59,12 +59,12 @@ public:
     void Update();
     void Draw();
 
-    void InitGameContent(); // Função para popular itens/upgrades
+    void InitGameContent(); // Funï¿½ï¿½o para popular itens/upgrades
     void SaveGame();
     void LoadGame();
     void ResetSave();
 
-    // Métodos auxiliares de desenho (opcional, para organizar o Draw)
+    // Mï¿½todos auxiliares de desenho (opcional, para organizar o Draw)
     void DrawLogo();
     void DrawMenu();
     void DrawGameplay();

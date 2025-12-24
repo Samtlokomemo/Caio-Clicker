@@ -12,7 +12,7 @@ using namespace Config;
 // Mas como estamos movendo tudo, o ideal é que o Game.cpp gerencie a GUI se ele for o único a desenhar.
 // Se der problema, remova o #define daqui e deixe onde estava, mas garanta que raygui.h seja incluído.
 
-Game::Game() {
+Game::Game() : font() {
     // Inicialização de variáveis básicas
     caios = 0;
     totalCPS = 0.0;
@@ -28,10 +28,10 @@ Game::Game() {
     buttonWidth = 312.f;
     buttonHeight = 50.f;
     buttonSpacing = 2.f;
-    backButtonRect = { 10, 10, 50, 50 };
+    backButtonRect = {10, 10, 50, 50};
 
     // Inicializa o botão (assumindo tela 800x600, idealmente passaria isso no construtor)
-    botaoDoCaio = new ClickerButton({ 400, 300}, 50, 60, RED);
+    botaoDoCaio = new ClickerButton({400, 300}, 50, 60, RED);
 }
 
 Game::~Game() {
@@ -42,7 +42,7 @@ Game::~Game() {
 
 void Game::Init() {
     // Carrega Fonte
-    font = LoadFontEx("m5x7.ttf", 72, 0, 250);
+    font = LoadFontEx("m5x7.ttf", 72, nullptr, 250);
     SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
     GuiSetFont(font);
 
